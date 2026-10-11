@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="th" class="h-full bg-slate-50">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#5c1088">
+    <title>FIND YOUR WAY @ CMU - Find Your Way, Make Your Day!</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        cmu: {
+                            50: '#f5f0fb',
+                            100: '#ebd9f7',
+                            200: '#daaff2',
+                            300: '#bf79e9',
+                            400: '#a342dd',
+                            500: '#8b1bc7',
+                            600: '#6f11a5',
+                            700: '#5c1088',
+                            800: '#4c116e',
+                            900: '#3d1258',
+                            gold: '#F5A623',
+                            accent: '#8A2BE2'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Kanit', 'Prompt', 'Inter', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&family=Prompt:wght@300;400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Leaflet map -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        body { font-family: 'Kanit', 'Prompt', sans-serif; -webkit-tap-highlight-color: transparent; overflow-x: hidden; }
+        #map { height: 100%; width: 100%; z-index: 1; }
+        .leaflet-container { font-family: 'Kanit', sans-serif !important; border-radius: 1rem; }
+        .custom-div-icon { background: transparent; border: none; }
+        .marker-pin { width: 36px; height: 36px; border-radius: 50% 50% 50% 0; background: #6f11a5; position: absolute; transform: rotate(-45deg); left: 50%; top: 50%; margin: -20px 0 0 -20px; box-shadow: 0 4px 12px rgba(111,17,165,.4); display:flex; align-items:center; justify-content:center; transition:all .2s ease; }
+        .marker-pin i { transform: rotate(45deg); color:white; font-size:15px; }
+        .marker-pin.active { background:#F5A623; transform:rotate(-45deg) scale(1.25); z-index:1000 !important; }
+        .no-scrollbar::-webkit-scrollbar { display:none; }
+        .no-scrollbar { -ms-overflow-style:none; scrollbar-width:none; }
+        @keyframes targetPulse { 0%{transform:scale(.95);opacity:.8} 50%{transform:scale(1.15);opacity:1;box-shadow:0 0 15px rgba(111,17,165,.8)} 100%{transform:scale(.95);opacity:.8} }
+        .pulse-room { animation:targetPulse 1.8s infinite ease-in-out; }
+        .glass-panel { background:rgba(255,255,255,.92); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); }
+        #map { min-height: 360px; }
+        @media (max-width: 640px) {
+            main { min-height: 55vh; }
+            #view-map { min-height: 55vh; }
+        }
+    </style>
+</head>
+<body class="h-full min-h-screen flex flex-col bg-slate-100 text-slate-800 antialiased selection:bg-cmu-200">
+<header class="bg-gradient-to-r from-cmu-800 via-cmu-700 to-cmu-900 text-white shadow-lg sticky top-0 z-30 flex-shrink-0">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between gap-2">
+        <div class="flex items-center space-x-3 cursor-pointer" onclick="resetToHome()">
+            <div class="w-10 h-10 rounded-xl bg-white/10 border border-white/20 flex items-center justify-center text-xl"><i class="fa-solid fa-compass text-amber-300"></i></div>
+            <div><h1 class="text-lg font-bold tracking-tight leading-tight flex items-center gap-1.5"><span>FIND YOUR WAY</span><span class="text-xs bg-amber-400 text-cmu-900 font-extrabold px-1.5 py-0.5 rounded-md">@ CMU</span></h1><p class="text-[11px] text-purple-100 tracking-wide">Find Your Way, Make Your Day!</p></div>
+        </div>
+        <div class="flex items-center space-x-2">
+            <button onclick="toggleBusRouteModal()" title="เส้นทางรถม่วง มช." class="px-2.5 py-2 rounded-lg bg-white/10 border border-white/15 text-xs flex items-center gap-1.5"><i class="fa-solid fa-bus text-amber-300"></i><span class="hidden sm:inline">รถม่วง CMU</span></button>
+            <button onclick="toggleApiSettingsModal()" title="การตั้งค่าแผนที่" class="p-2 rounded-lg bg-white/10 border border-white/15"><i class="fa-solid fa-gear"></i></button>
+            <button onclick="toggleHelpModal()" title="วิธีใช้งาน" class="p-2 rounded-lg bg-white/10 border border-white/15"><i class="fa-solid fa-circle-question text-amber-300"></i></button>
+        </div>
+    </div>
+</header>
+
+<section class="bg-gradient-to-b from-cmu-800 to-cmu-700 pb-4 pt-2 px-4 shadow-md z-20 flex-shrink-0">
+    <div class="max-w-3xl mx-auto relative">
+        <div class="relative flex items-center">
+            <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-cmu-600"><i class="fa-solid fa-magnifying-glass text-lg"></i></div>
+            <input type="text" id="searchInput" placeholder="ค้นหาเลขห้อง (เช่น HB7801, ENG301), คณะ, อาคาร หรือสถานที่..." class="w-full pl-11 pr-10 py-3 rounded-xl border-2 border-amber-300/40 bg-white text-slate-800 text-sm md:text-base shadow-lg focus:outline-none focus:border-amber-400 placeholder:text-slate-400" oninput="handleSearchInput(this.value)" onfocus="handleSearchFocus()">
+            <button id="clearSearchBtn" onclick="clearSearch()" class="hidden absolute inset-y-0 right-0 pr-3 items-center text-slate-400"><i class="fa-solid fa-circle-xmark text-lg"></i></button>
+        </div>
+        <div id="searchResultsDropdown" class="hidden absolute left-0 right-0 top-full mt-2 bg-white rounded-xl shadow-2xl border border-slate-200 max-h-80 overflow-y-auto z-50 divide-y divide-slate-100"></div>
+        <div class="flex items-center gap-2 mt-3 overflow-x-auto no-scrollbar pb-1 text-xs font-medium">
+            <span class="text-purple-100 text-[11px] whitespace-nowrap">กรอง:</span>
+            <button onclick="filterCategory('all')" id="chip-all" class="chip-btn px-3 py-1 rounded-full bg-amber-400 text-cmu-900 font-semibold whitespace-nowrap">ทั้งหมด</button>
+            <button onclick="filterCategory('faculty')" id="chip-faculty" class="chip-btn px-3 py-1 rounded-full bg-white/15 text-white border border-white/20 whitespace-nowrap">คณะ / วิทยาลัย</button>
+            <button onclick="filterCategory('building')" id="chip-building" class="chip-btn px-3 py-1 rounded-full bg-white/15 text-white border border-white/20 whitespace-nowrap">อาคารเรียน</button>
+            <button onclick="filterCategory('food')" id="chip-food" class="chip-btn px-3 py-1 rounded-full bg-white/15 text-white border border-white/20 whitespace-nowrap">อาหาร & บริการ</button>
+            <button onclick="filterCategory('landmark')" id="chip-landmark" class="chip-btn px-3 py-1 rounded-full bg-white/15 text-white border border-white/20 whitespace-nowrap">จุดแลนด์มาร์ก</button>
+        </div>
+    </div>
+</section>
+
+<nav class="bg-white border-b border-slate-200 shadow-sm z-20 flex-shrink-0">
+    <div class="max-w-3xl mx-auto flex">
+        <button onclick="switchView('map')" id="tab-map" class="flex-1 py-3 px-1 text-center border-b-2 border-cmu-600 text-cmu-700 font-semibold text-xs sm:text-sm flex items-center justify-center gap-1.5"><i class="fa-solid fa-map-location-dot"></i><span>แผนที่ภาพรวม</span></button>
+        <button onclick="switchView('nav')" id="tab-nav" class="flex-1 py-3 px-1 text-center border-b-2 border-transparent text-slate-500 text-xs sm:text-sm flex items-center justify-center gap-1.5"><i class="fa-solid fa-route"></i><span>นำทางเดินทาง</span></button>
+        <button onclick="switchView('indoor')" id="tab-indoor" class="flex-1 py-3 px-1 text-center border-b-2 border-transparent text-slate-500 text-xs sm:text-sm flex items-center justify-center gap-1.5"><i class="fa-solid fa-layer-group"></i><span>แผนผังชั้น/ห้อง</span></button>
+        <button onclick="switchView('directory')" id="tab-directory" class="flex-1 py-3 px-1 text-center border-b-2 border-transparent text-slate-500 text-xs sm:text-sm flex items-center justify-center gap-1.5"><i class="fa-solid fa-list-check"></i><span>รายชื่อสถานที่</span></button>
+    </div>
+</nav>
+
+<main class="flex-1 relative overflow-hidden flex flex-col">
+    <div id="view-map" class="w-full flex-1 relative">
+        <div id="map"></div>
+        <div class="absolute top-4 right-4 z-[500] flex flex-col gap-2">
+            <button onclick="getUserLocation()" title="ตำแหน่งปัจจุบัน" class="w-11 h-11 bg-white text-cmu-700 rounded-xl shadow-lg border flex items-center justify-center text-lg"><i class="fa-solid fa-crosshairs"></i></button>
+            <button onclick="resetMapView()" title="มุมมองภาพรวม" class="w-11 h-11 bg-white text-slate-700 rounded-xl shadow-lg border flex items-center justify-center text-lg"><i class="fa-solid fa-arrows-to-dot"></i></button>
+            <button onclick="toggleMapType()" title="เปลี่ยนรูปแบบแผนที่" class="w-11 h-11 bg-white text-slate-700 rounded-xl shadow-lg border flex items-center justify-center text-base"><i class="fa-solid fa-layer-group text-cmu-600"></i></button>
+        </div>
+        <div id="placeBottomSheet" class="hidden absolute bottom-4 left-4 right-4 md:left-auto md:right-4 md:w-96 bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl border p-4 z-[550]">
+            <div class="flex justify-between items-start mb-2"><span id="sheetCategoryBadge" class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-cmu-100 text-cmu-800">คณะ / หน่วยงาน</span><button onclick="closeBottomSheet()" class="text-slate-400 p-1"><i class="fa-solid fa-xmark text-lg"></i></button></div>
+            <h3 id="sheetTitle" class="text-base font-bold text-slate-800">อาคาร HB7</h3><p id="sheetSubtitle" class="text-xs text-cmu-600 font-medium mb-2"></p><p id="sheetDescription" class="text-xs text-slate-600 mb-3"></p>
+            <div class="grid grid-cols-2 gap-2 pt-2 border-t"><button onclick="navigateFromSheet()" class="py-2.5 px-3 rounded-xl bg-cmu-600 text-white text-xs font-semibold flex items-center justify-center gap-1.5"><i class="fa-solid fa-location-arrow"></i> นำทางไปที่นี่</button><button onclick="openIndoorFromSheet()" class="py-2.5 px-3 rounded-xl bg-slate-100 text-slate-700 text-xs font-semibold flex items-center justify-center gap-1.5"><i class="fa-solid fa-stairs"></i> ดูแผนผังชั้นห้อง</button></div>
+        </div>
+    </div>
+
+    <div id="view-nav" class="hidden w-full flex-1 bg-slate-50 overflow-y-auto p-4 max-w-3xl mx-auto flex-col gap-4">
+        <div class="bg-white rounded-2xl p-4 shadow border space-y-3">
+            <h2 class="text-sm font-bold text-cmu-800"><i class="fa-solid fa-route text-cmu-600"></i> ระบบคำนวณการเดินทางภายใน มช.</h2>
+            <div><label class="block text-[11px] text-slate-400">จุดเริ่มต้น</label><select id="navStartSelect" onchange="updateRouteCalculation()" class="w-full text-xs py-2 px-3 border rounded-lg bg-slate-50"><option value="GPS">ตำแหน่งปัจจุบัน (GPS)</option><option value="SALADHUT">ศาลาธรรม</option><option value="ANGKAEW">อ่างแก้ว</option><option value="MAIN_GATE">ประตูหน้า มช.</option><option value="ENG3">อาคาร ENG3</option><option value="HB7">อาคาร HB7</option><option value="SCB1">อาคาร SCB1</option><option value="CAMT">อาคาร CAMT</option></select></div>
+            <div><label class="block text-[11px] text-slate-400">จุดหมายปลายทาง</label><select id="navDestSelect" onchange="updateRouteCalculation()" class="w-full text-xs py-2 px-3 border rounded-lg bg-slate-50"></select></div>
+            <div class="flex text-xs font-medium"><button onclick="setTravelMode('walk')" id="mode-walk" class="flex-1 py-2 mx-1 rounded-lg bg-cmu-100 text-cmu-800">🚶 เดินเท้า</button><button onclick="setTravelMode('bus')" id="mode-bus" class="flex-1 py-2 mx-1 rounded-lg bg-slate-100">🚌 รถม่วง มช.</button><button onclick="setTravelMode('bike')" id="mode-bike" class="flex-1 py-2 mx-1 rounded-lg bg-slate-100">🛵 มอเตอร์ไซค์</button></div>
+        </div>
+        <div class="bg-gradient-to-br from-cmu-800 to-cmu-900 text-white rounded-2xl p-4 shadow-lg flex items-center justify-between gap-3"><div><span id="routeModeLabel" class="text-[11px] text-amber-300">เส้นทางเดินเท้า</span><h3 id="routeDestTitle" class="text-base font-bold">เลือกจุดหมาย</h3><p id="routeStats" class="text-xs text-purple-100 mt-1"></p></div><button onclick="openExternalGoogleMaps()" class="px-3 py-2 rounded-xl bg-amber-400 text-cmu-900 font-bold text-xs">เปิด Google Maps</button></div>
+        <div class="bg-white rounded-2xl p-4 shadow border"><h3 class="text-xs font-bold text-slate-500 mb-3">คำแนะนำการเดินทาง</h3><div id="stepDirectionsContainer" class="space-y-3"></div></div>
+    </div>
+
+    <div id="view-indoor" class="hidden w-full flex-1 bg-slate-100 overflow-y-auto p-4 max-w-4xl mx-auto flex-col gap-4">
+        <div class="bg-white rounded-2xl p-4 shadow border space-y-3"><div><h2 class="text-base font-bold text-cmu-800">แผนผังภายในอาคาร</h2><p class="text-xs text-slate-500">เลือกอาคารและชั้นเพื่อดูตำแหน่งห้อง (แผนผังตัวอย่าง)</p></div><div><label class="block text-xs text-slate-500 mb-1">เลือกอาคาร</label><select id="indoorBuildingSelect" onchange="updateIndoorView()" class="w-full text-xs py-2 px-3 border rounded-xl bg-slate-50"></select></div><div><label class="block text-xs text-slate-500 mb-1">เลือกชั้น</label><div id="floorPillContainer" class="flex gap-1.5 overflow-x-auto no-scrollbar py-1"></div></div></div>
+        <div class="bg-white rounded-2xl shadow border overflow-hidden"><div class="bg-slate-800 text-white px-4 py-3 flex items-center justify-between text-xs"><span id="indoorFloorTitle" class="font-semibold text-amber-300"></span><span class="text-slate-300">เขียว: ทางเข้า • เหลือง: ลิฟต์ • ม่วง: ห้อง</span></div><div class="p-3 bg-slate-900 flex justify-center"><canvas id="indoorCanvas" width="700" height="420" class="max-w-full h-auto rounded-xl"></canvas></div><div class="p-4"><h3 class="text-xs font-bold text-slate-600 mb-2">ห้องเรียนในชั้นนี้</h3><div id="floorRoomsList" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2"></div></div></div>
+    </div>
+
+    <div id="view-directory" class="hidden w-full flex-1 bg-slate-50 overflow-y-auto p-4 max-w-4xl mx-auto flex-col gap-3"><div class="flex items-center justify-between"><h2 class="text-base font-bold text-cmu-800">รายชื่ออาคารและสถานที่สำคัญ</h2><span id="directoryCount" class="text-xs text-slate-500 bg-slate-200 px-2 py-1 rounded-full"></span></div><div id="directoryList" class="grid grid-cols-1 md:grid-cols-2 gap-3"></div></div>
+</main>
+
+<footer class="sm:hidden bg-white border-t border-slate-200 shadow-lg sticky bottom-0 z-40 flex-shrink-0"><div class="grid grid-cols-4 py-1.5 text-center text-[10px] font-medium"><button onclick="switchView('map')" id="mob-map" class="py-1 text-cmu-700 flex flex-col items-center gap-0.5"><i class="fa-solid fa-map-location-dot text-lg"></i><span>แผนที่</span></button><button onclick="switchView('nav')" id="mob-nav" class="py-1 text-slate-400 flex flex-col items-center gap-0.5"><i class="fa-solid fa-route text-lg"></i><span>นำทาง</span></button><button onclick="switchView('indoor')" id="mob-indoor" class="py-1 text-slate-400 flex flex-col items-center gap-0.5"><i class="fa-solid fa-layer-group text-lg"></i><span>ผังชั้นห้อง</span></button><button onclick="switchView('directory')" id="mob-directory" class="py-1 text-slate-400 flex flex-col items-center gap-0.5"><i class="fa-solid fa-list-check text-lg"></i><span>รายชื่อ</span></button></div></footer>
+
+<div id="busModal" class="hidden fixed inset-0 bg-slate-900/60 z-[990] flex items-center justify-center p-4"><div class="bg-white rounded-2xl max-w-md w-full p-5 shadow-2xl space-y-4"><div class="flex justify-between items-center font-bold text-cmu-800"><span>ข้อมูลรถม่วง มช. (ตัวอย่าง)</span><button onclick="toggleBusRouteModal()">✕</button></div><p class="text-xs text-slate-600">ข้อมูลสายรถในหน้านี้เป็นข้อมูลตัวอย่าง ควรตรวจสอบตารางเดินรถจริงก่อนใช้งาน</p><button onclick="toggleBusRouteModal()" class="w-full py-2.5 rounded-xl bg-cmu-600 text-white">เข้าใจแล้ว</button></div></div>
+<div id="helpModal" class="hidden fixed inset-0 bg-slate-900/60 z-[990] flex items-center justify-center p-4"><div class="bg-white rounded-2xl max-w-md w-full p-5 shadow-2xl space-y-4"><div class="flex justify-between font-bold text-cmu-800"><span>วิธีใช้งาน</span><button onclick="toggleHelpModal()">✕</button></div><ol class="text-xs text-slate-600 list-decimal pl-5 space-y-2"><li>พิมพ์เลขห้อง เช่น HB7801 หรือชื่ออาคาร</li><li>เลือกผลลัพธ์เพื่อดูตำแหน่งและผังชั้นตัวอย่าง</li><li>กดเปิด Google Maps เพื่อดูเส้นทางภายนอก</li></ol><button onclick="toggleHelpModal()" class="w-full py-2.5 rounded-xl bg-cmu-600 text-white">เริ่มใช้งาน</button></div></div>
+<div id="apiSettingsModal" class="hidden fixed inset-0 bg-slate-900/60 z-[990] flex items-center justify-center p-4"><div class="bg-white rounded-2xl max-w-md w-full p-5 shadow-2xl space-y-4"><div class="flex justify-between font-bold text-cmu-800"><span>การตั้งค่าแผนที่</span><button onclick="toggleApiSettingsModal()">✕</button></div><p class="text-xs text-slate-600">แผนที่ใช้ OpenStreetMap ไม่ต้องใช้ Google Maps API Key</p><p class="text-xs text-amber-700 bg-amber-50 p-3 rounded-xl">ข้อมูลห้อง ผังชั้น และเส้นทางในต้นแบบนี้เป็นข้อมูลตัวอย่างบางส่วน</p><button onclick="toggleApiSettingsModal()" class="w-full py-2.5 rounded-xl bg-cmu-600 text-white">ปิด</button></div></div>
+<div id="toastNotification" class="hidden fixed bottom-16 sm:bottom-6 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-xs px-4 py-2.5 rounded-xl shadow-2xl z-[1000]"><span id="toastMessage"></span></div>
+
+<script>
+const cmuDataset = { buildings: [
+{id:"HB7",name:"อาคาร HB7 (คณะมนุษยศาสตร์)",englishName:"Humanities Building 7",faculty:"คณะมนุษยศาสตร์",category:"building",lat:18.7942,lng:98.954,description:"อาคารเรียนรวม มีห้องเรียนและห้องปฏิบัติการ (โปรดตรวจสอบข้อมูลจริง)",floors:[1,2,3,4,7,8],rooms:[{code:"HB7801",floor:8,capacity:180,type:"Lecture Hall",features:["แอร์","โปรเจกเตอร์","WiFi"]},{code:"HB7802",floor:8,capacity:120,type:"Lecture Room",features:["แอร์","โปรเจกเตอร์"]},{code:"HB7406",floor:4,capacity:60,type:"Language Lab",features:["คอมพิวเตอร์","หูฟัง"]},{code:"HB7101",floor:1,capacity:250,type:"Auditorium",features:["เวที","แอร์","ไมค์"]}]},
+{id:"ENG3",name:"อาคารวิศวกรรมศาสตร์ 3 (ENG3)",englishName:"Engineering Building 3",faculty:"คณะวิศวกรรมศาสตร์",category:"building",lat:18.7957,lng:98.9526,description:"อาคารคณะวิศวกรรมศาสตร์ (ตรวจสอบตำแหน่งและข้อมูลห้องก่อนใช้งานจริง)",floors:[1,2,3,4],rooms:[{code:"ENG301",floor:3,capacity:120,type:"Computer Lab",features:["PC","อินเทอร์เน็ต"]},{code:"ENG302",floor:3,capacity:90,type:"Lecture Room",features:["โปรเจกเตอร์"]},{code:"ENG401",floor:4,capacity:150,type:"Seminar Room",features:["แอร์","เครื่องเสียง"]}]},
+{id:"SCB1",name:"อาคารวิทยาศาสตร์ 1 (SCB1)",englishName:"Science Building 1",faculty:"คณะวิทยาศาสตร์",category:"building",lat:18.7981,lng:98.9536,description:"อาคารเรียนและห้องปฏิบัติการวิทยาศาสตร์ (ตรวจสอบข้อมูลจริง)",floors:[1,2,3],rooms:[{code:"SC1101",floor:1,capacity:200,type:"Lab",features:["อุปกรณ์ทดลอง"]},{code:"SC1201",floor:2,capacity:150,type:"Lecture Room",features:["แอร์"]}]},
+{id:"CAMT",name:"วิทยาลัยศิลปะ สื่อ และเทคโนโลยี (CAMT)",englishName:"College of Arts, Media and Technology",faculty:"CAMT",category:"faculty",lat:18.7928,lng:98.9548,description:"วิทยาลัยด้านสื่อและเทคโนโลยี (ตรวจสอบข้อมูลจริง)",floors:[1,2,3,4],rooms:[{code:"CAMT201",floor:2,capacity:80,type:"Studio",features:["คอมพิวเตอร์"]},{code:"CAMT202",floor:2,capacity:100,type:"Game Lab",features:["คอมพิวเตอร์"]}]},
+{id:"LIB",name:"สำนักหอสมุด มหาวิทยาลัยเชียงใหม่",englishName:"CMU Central Library",faculty:"สำนักหอสมุด",category:"landmark",lat:18.7963,lng:98.9525,description:"สำนักหอสมุด มช. (ตรวจสอบเวลาเปิดและบริการ)",floors:[1,2,3],rooms:[{code:"LIB101",floor:1,capacity:300,type:"Study Zone",features:["ปลั๊กไฟ","WiFi"]},{code:"LIB201",floor:2,capacity:40,type:"Group Discussion",features:["จอ TV"]}]},
+{id:"SALADHUT",name:"ศาลาธรรม (Sala Dham)",englishName:"CMU Sala Dham",faculty:"มหาวิทยาลัยเชียงใหม่",category:"landmark",lat:18.7989,lng:98.9555,description:"ศาลาธรรม มหาวิทยาลัยเชียงใหม่",floors:[1],rooms:[]},
+{id:"ANGKAEW",name:"อ่างแก้ว มช. (Ang Kaew Reservoir)",englishName:"Ang Kaew Reservoir",faculty:"จุดพักผ่อนธรรมชาติ",category:"landmark",lat:18.8035,lng:98.9515,description:"อ่างแก้ว มช.",floors:[1],rooms:[]},
+{id:"AMORN_FOOD",name:"ศูนย์อาหารอมรพรรณ / ตลาดร่มฝ้าย",englishName:"CMU Food Court",faculty:"สำนักงานบริหารสินทรัพย์",category:"food",lat:18.7948,lng:98.9512,description:"ศูนย์อาหารและร้านค้า (ตรวจสอบข้อมูลจริง)",floors:[1],rooms:[]}
+]};
+let map=null, markers={}, activeSelectedPlace=null, currentSearchCategory="all", currentTravelMode="walk", routePolyline=null, userLocationMarker=null, userCoords={lat:18.7989,lng:98.9555};
+window.onload=function(){initLeafletMap();populateDestinationsList();populateIndoorBuildingDropdown();renderDirectoryList();selectPlace("HB7");};
+function initLeafletMap(){const center=[18.7958,98.9528];map=L.map("map",{zoomControl:false,attributionControl:true}).setView(center,16);L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'}).addTo(map);L.control.zoom({position:"topleft"}).addTo(map);renderMapMarkers();}
+function renderMapMarkers(){if(!map)return;Object.values(markers).forEach(m=>map.removeLayer(m));markers={};cmuDataset.buildings.forEach(b=>{if(currentSearchCategory!=="all"&&b.category!==currentSearchCategory)return;const icon=L.divIcon({className:"custom-div-icon",html:`<div class="marker-pin" id="pin-${b.id}"><i class="fa-solid fa-location-dot"></i></div>`,iconSize:[36,36],iconAnchor:[18,36]});const marker=L.marker([b.lat,b.lng],{icon}).addTo(map);marker.on("click",()=>selectPlace(b.id));markers[b.id]=marker;});}
+function handleSearchInput(query){const dropdown=document.getElementById("searchResultsDropdown"),clear=document.getElementById("clearSearchBtn");if(!query.trim()){dropdown.classList.add("hidden");clear.classList.add("hidden");return;}clear.classList.remove("hidden");clear.classList.add("flex");const q=query.trim().toLowerCase(),matches=[];cmuDataset.buildings.forEach(b=>{if([b.name,b.englishName,b.faculty,b.id].some(v=>v.toLowerCase().includes(q)))matches.push({type:"อาคาร / สถานที่",title:b.name,subtitle:b.faculty,buildingId:b.id,roomCode:"",floor:1,icon:"fa-building-columns"});b.rooms.forEach(r=>{if(r.code.toLowerCase().includes(q))matches.push({type:`ห้องเรียน (ชั้น ${r.floor})`,title:`ห้อง ${r.code}`,subtitle:`${b.name} • ความจุ ${r.capacity} คน`,buildingId:b.id,roomCode:r.code,floor:r.floor,icon:"fa-door-open"});});});dropdown.innerHTML=matches.length?matches.map(m=>`<button type="button" onclick="selectSearchResult('${m.buildingId}','${m.roomCode}',${m.floor})" class="w-full text-left p-3 hover:bg-cmu-50 flex items-center gap-3 border-b border-slate-100"><span class="w-9 h-9 rounded-xl bg-cmu-100 text-cmu-800 flex items-center justify-center"><i class="fa-solid ${m.icon}"></i></span><span class="min-w-0"><span class="block text-xs font-bold truncate">${m.title}</span><span class="block text-[11px] text-slate-500">${m.subtitle}</span></span></button>`).join(""):`<div class="p-4 text-center text-xs text-slate-500">ไม่พบสถานที่หรือห้องเรียน “${escapeHtml(query)}”<p class="text-[10px] mt-1">ลองค้นหา HB7801, ENG301 หรือ HB7</p></div>`;dropdown.classList.remove("hidden");}
+function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
+function handleSearchFocus(){const i=document.getElementById("searchInput");if(i.value.trim())handleSearchInput(i.value);}
+function clearSearch(){document.getElementById("searchInput").value="";document.getElementById("searchResultsDropdown").classList.add("hidden");document.getElementById("clearSearchBtn").classList.add("hidden");}
+function selectSearchResult(id,room,floor){clearSearch();selectPlace(id);if(room){showToast(`พบห้อง ${room} ชั้น ${floor} (ผังชั้นเป็นตัวอย่าง)`);switchView("indoor");document.getElementById("indoorBuildingSelect").value=id;updateIndoorView(Number(floor),room);}}
+function selectPlace(id){const b=cmuDataset.buildings.find(x=>x.id===id);if(!b)return;activeSelectedPlace=b;document.querySelectorAll(".marker-pin").forEach(x=>x.classList.remove("active"));const pin=document.getElementById(`pin-${id}`);if(pin)pin.classList.add("active");if(map){map.flyTo([b.lat,b.lng],17,{duration:.7});}document.getElementById("sheetTitle").textContent=b.name;document.getElementById("sheetSubtitle").textContent=`${b.faculty} • ${b.englishName}`;document.getElementById("sheetDescription").textContent=b.description;document.getElementById("placeBottomSheet").classList.remove("hidden");const dest=document.getElementById("navDestSelect");if(dest)dest.value=id;}
+function closeBottomSheet(){document.getElementById("placeBottomSheet").classList.add("hidden");document.querySelectorAll(".marker-pin").forEach(x=>x.classList.remove("active"));}
+function filterCategory(cat){currentSearchCategory=cat;document.querySelectorAll(".chip-btn").forEach(btn=>{btn.classList.remove("bg-amber-400","text-cmu-900","font-semibold");btn.classList.add("bg-white/15","text-white");});const active=document.getElementById(`chip-${cat}`);if(active){active.classList.remove("bg-white/15","text-white");active.classList.add("bg-amber-400","text-cmu-900","font-semibold");}renderMapMarkers();renderDirectoryList();}
+function switchView(name){["map","nav","indoor","directory"].forEach(v=>{document.getElementById(`view-${v}`).classList.add("hidden");const t=document.getElementById(`tab-${v}`);if(t){t.classList.remove("border-cmu-600","text-cmu-700","font-semibold");t.classList.add("border-transparent","text-slate-500");}const m=document.getElementById(`mob-${v}`);if(m){m.classList.remove("text-cmu-700");m.classList.add("text-slate-400");}});const target=document.getElementById(`view-${name}`);target.classList.remove("hidden");const t=document.getElementById(`tab-${name}`);if(t){t.classList.remove("border-transparent","text-slate-500");t.classList.add("border-cmu-600","text-cmu-700","font-semibold");}const m=document.getElementById(`mob-${name}`);if(m){m.classList.remove("text-slate-400");m.classList.add("text-cmu-700");}if(name==="map"&&map)setTimeout(()=>map.invalidateSize(),200);}
+function populateDestinationsList(){document.getElementById("navDestSelect").innerHTML=cmuDataset.buildings.map(b=>`<option value="${b.id}">${b.name}</option>`).join("");}
+function setTravelMode(mode){currentTravelMode=mode;["walk","bus","bike"].forEach(m=>{const btn=document.getElementById(`mode-${m}`);btn.className=m===mode?"flex-1 py-2 mx-1 rounded-lg bg-cmu-100 text-cmu-800 font-semibold":"flex-1 py-2 mx-1 rounded-lg bg-slate-100 text-slate-600";});updateRouteCalculation();}
+function updateRouteCalculation(){const dest=cmuDataset.buildings.find(b=>b.id===document.getElementById("navDestSelect").value);if(!dest)return;const startVal=document.getElementById("navStartSelect").value;let start={...userCoords},startName="ตำแหน่งปัจจุบัน (ตำแหน่งจำลอง)";if(startVal!=="GPS"){const b=cmuDataset.buildings.find(x=>x.id===startVal);if(b){start={lat:b.lat,lng:b.lng};startName=b.name;}else if(startVal==="MAIN_GATE"){start={lat:18.8003,lng:98.9503};startName="ประตูหน้า มช. (พิกัดตัวอย่าง)";}}const dist=Math.round(distance(start.lat,start.lng,dest.lat,dest.lng));const speed=currentTravelMode==="walk"?75:currentTravelMode==="bus"?250:350;const mins=Math.max(1,Math.round(dist/speed));document.getElementById("routeDestTitle").textContent=`ไปยัง ${dest.name}`;document.getElementById("routeStats").textContent=`ระยะเส้นตรงประมาณ ${dist} เมตร • เวลาโดยประมาณ ${mins} นาที (ไม่ใช่เส้นทางจริง)`;document.getElementById("routeModeLabel").textContent=currentTravelMode==="walk"?"รูปแบบ: เดินเท้า":currentTravelMode==="bus"?"รูปแบบ: รถม่วง (ข้อมูลตัวอย่าง)":"รูปแบบ: มอเตอร์ไซค์";if(map){if(routePolyline)map.removeLayer(routePolyline);routePolyline=L.polyline([[start.lat,start.lng],[dest.lat,dest.lng]],{color:"#6f11a5",weight:5,dashArray:"8, 8",lineCap:"round"}).addTo(map);map.fitBounds(routePolyline.getBounds(),{padding:[50,50]});}renderSteps(startName,dest.name,dist,currentTravelMode);}
+function renderSteps(start,dest,dist,mode){const c=document.getElementById("stepDirectionsContainer");const steps=mode==="bus"?[`เริ่มต้นที่ ${start} — ตรวจสอบป้ายรถจริงก่อนเดินทาง`,`ขึ้นรถม่วงเมื่อมีบริการและลงใกล้ ${dest}`,`เดินต่อไปยังจุดหมาย (ขั้นตอนตัวอย่าง)`]:[`เริ่มต้นที่ ${start}`,`มุ่งหน้าไปยังบริเวณจุดหมาย (คำแนะนำตัวอย่าง ประมาณ ${Math.round(dist*.7)} เมตร)`,`ถึงบริเวณ ${dest} — โปรดตรวจสอบทางเข้าอาคารจริง`];c.innerHTML=steps.map((s,i)=>`<div class="flex gap-3 text-xs"><span class="w-6 h-6 rounded-full ${i===0?"bg-emerald-500":i===1?"bg-amber-500":"bg-cmu-600"} text-white flex items-center justify-center shrink-0">${i+1}</span><p class="pt-1">${escapeHtml(s)}</p></div>`).join("");}
+function openExternalGoogleMaps(){const b=cmuDataset.buildings.find(x=>x.id===document.getElementById("navDestSelect").value);if(!b)return;const mode=currentTravelMode==="walk"?"walking":"driving";window.open(`https://www.google.com/maps/dir/?api=1&destination=${b.lat},${b.lng}&travelmode=${mode}`,"_blank","noopener");}
+function populateIndoorBuildingDropdown(){document.getElementById("indoorBuildingSelect").innerHTML=cmuDataset.buildings.map(b=>`<option value="${b.id}">${b.name}</option>`).join("");updateIndoorView();}
+function updateIndoorView(targetFloor=null,highlight=null){const id=document.getElementById("indoorBuildingSelect").value,b=cmuDataset.buildings.find(x=>x.id===id);if(!b)return;const floor=targetFloor??b.floors[0]??1;document.getElementById("floorPillContainer").innerHTML=b.floors.map(f=>`<button onclick="updateIndoorView(${f})" class="px-3 py-1 rounded-lg text-xs whitespace-nowrap ${f===floor?"bg-cmu-600 text-white":"bg-slate-100 text-slate-600"}">ชั้น ${f}</button>`).join("");document.getElementById("indoorFloorTitle").textContent=`${b.name} - ชั้น ${floor} (แผนผังตัวอย่าง)`;drawIndoorCanvas(b,floor,highlight);const rooms=b.rooms.filter(r=>r.floor===floor);document.getElementById("floorRoomsList").innerHTML=rooms.length?rooms.map(r=>`<button onclick="updateIndoorView(${r.floor},'${r.code}')" class="text-left p-2.5 rounded-xl border ${highlight===r.code?"border-amber-400 bg-amber-50":"border-slate-200 bg-slate-50"}"><span class="font-bold text-xs text-cmu-900">${r.code}</span><span class="block text-[11px] text-slate-500">${r.type} • ความจุ ${r.capacity} • ${r.features.join(", ")}</span></button>`).join(""):'<p class="text-xs text-slate-400">ไม่มีข้อมูลห้องตัวอย่างในชั้นนี้</p>';}
+function drawIndoorCanvas(b,floor,highlight){const c=document.getElementById("indoorCanvas"),ctx=c.getContext("2d");ctx.fillStyle="#0f172a";ctx.fillRect(0,0,c.width,c.height);ctx.strokeStyle="#1e293b";ctx.lineWidth=1;for(let x=0;x<c.width;x+=30){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,c.height);ctx.stroke();}for(let y=0;y<c.height;y+=30){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(c.width,y);ctx.stroke();}ctx.strokeStyle="#6f11a5";ctx.lineWidth=4;ctx.strokeRect(40,40,c.width-80,c.height-80);ctx.fillStyle="#1e1b4b";ctx.fillRect(50,180,c.width-100,60);ctx.fillStyle="#10b981";ctx.fillRect(40,195,12,30);ctx.fillStyle="#fff";ctx.font="bold 12px sans-serif";ctx.fillText("ทางเข้า",8,212);ctx.fillStyle="#f59e0b";ctx.fillRect(c.width/2-30,50,60,40);ctx.fillStyle="#fff";ctx.font="11px sans-serif";ctx.fillText("ลิฟต์/บันได",c.width/2-30,74);const rooms=b.rooms.filter(r=>r.floor===floor);const count=Math.max(rooms.length,1),w=Math.min(130,(c.width-120)/Math.ceil(count/2));rooms.forEach((r,i)=>{const x=60+(i%2)* (w+15),y=i%2===0?70:260,active=r.code===highlight;ctx.fillStyle=active?"#f59e0b":"#312e81";ctx.fillRect(x,y,w,90);ctx.strokeStyle=active?"#fbbf24":"#818cf8";ctx.lineWidth=active?3:1.5;ctx.strokeRect(x,y,w,90);ctx.fillStyle=active?"#111827":"#fff";ctx.font="bold 13px sans-serif";ctx.fillText(r.code,x+8,y+28);ctx.font="10px sans-serif";ctx.fillText(`${r.capacity} ที่นั่ง`,x+8,y+48);if(active){ctx.strokeStyle="#f59e0b";ctx.lineWidth=3;ctx.setLineDash([6,6]);ctx.beginPath();ctx.moveTo(52,210);ctx.lineTo(x+w/2,210);ctx.lineTo(x+w/2,y>180?y:y+90);ctx.stroke();ctx.setLineDash([]);}});}
+function renderDirectoryList(){const list=document.getElementById("directoryList"),items=cmuDataset.buildings.filter(b=>currentSearchCategory==="all"||b.category===currentSearchCategory);document.getElementById("directoryCount").textContent=`${items.length} สถานที่`;list.innerHTML=items.map(b=>`<article class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200"><div class="flex items-center justify-between mb-1"><span class="px-2 py-1 rounded-full text-[10px] bg-cmu-100 text-cmu-800">${b.faculty}</span><span class="text-xs text-slate-400 font-mono">${b.id}</span></div><h3 class="text-sm font-bold">${b.name}</h3><p class="text-xs text-slate-500 mt-1">${b.description}</p><div class="flex gap-2 mt-4 pt-3 border-t"><button onclick="switchView('map');selectPlace('${b.id}')" class="flex-1 py-2 rounded-xl bg-cmu-600 text-white text-xs">ดูบนแผนที่</button><button onclick="copyLocationShare('${b.name}',${b.lat},${b.lng})" class="px-3 rounded-xl bg-slate-100 text-xs" aria-label="คัดลอกพิกัด"><i class="fa-solid fa-share-nodes"></i></button></div></article>`).join("");}
+function navigateFromSheet(){if(!activeSelectedPlace)return;document.getElementById("navDestSelect").value=activeSelectedPlace.id;switchView("nav");updateRouteCalculation();}
+function openIndoorFromSheet(){if(!activeSelectedPlace)return;document.getElementById("indoorBuildingSelect").value=activeSelectedPlace.id;switchView("indoor");updateIndoorView();}
+function getUserLocation(){if(!navigator.geolocation){showToast("เบราว์เซอร์นี้ไม่รองรับ GPS");return;}showToast("กำลังขอตำแหน่ง GPS...");navigator.geolocation.getCurrentPosition(p=>{userCoords={lat:p.coords.latitude,lng:p.coords.longitude};if(map){if(userLocationMarker)map.removeLayer(userLocationMarker);const icon=L.divIcon({className:"custom-div-icon",html:'<div class="w-6 h-6 rounded-full bg-blue-500 border-2 border-white shadow-lg pulse-room"></div>',iconSize:[24,24],iconAnchor:[12,12]});userLocationMarker=L.marker([userCoords.lat,userCoords.lng],{icon}).addTo(map);map.flyTo([userCoords.lat,userCoords.lng],17);}if(document.getElementById("navStartSelect").value==="GPS")updateRouteCalculation();showToast("ระบุตำแหน่งแล้ว");},()=>showToast("ไม่สามารถเข้าถึง GPS ได้ โปรดอนุญาตตำแหน่งหรือเลือกจุดเริ่มต้นเอง"),{enableHighAccuracy:true,timeout:10000});}
+function resetMapView(){if(map){map.flyTo([18.7958,98.9528],16);closeBottomSheet();}}
+function resetToHome(){switchView("map");resetMapView();clearSearch();}
+function toggleMapType(){showToast("ต้นแบบนี้ใช้แผนที่ OpenStreetMap");}
+function showToast(msg){const t=document.getElementById("toastNotification");document.getElementById("toastMessage").textContent=msg;t.classList.remove("hidden");clearTimeout(window.toastTimer);window.toastTimer=setTimeout(()=>t.classList.add("hidden"),3000);}
+function copyLocationShare(name,lat,lng){const text=`${name} (พิกัด: ${lat}, ${lng}) - FIND YOUR WAY @ CMU`;if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(text).then(()=>showToast("คัดลอกชื่อและพิกัดแล้ว")).catch(()=>fallbackCopy(text));}else fallbackCopy(text);}
+function fallbackCopy(text){const el=document.createElement("textarea");el.value=text;document.body.appendChild(el);el.select();try{document.execCommand("copy");showToast("คัดลอกชื่อและพิกัดแล้ว");}catch(e){showToast("ไม่สามารถคัดลอกได้ในเบราว์เซอร์นี้");}el.remove();}
+function distance(lat1,lon1,lat2,lon2){const R=6371e3,p1=lat1*Math.PI/180,p2=lat2*Math.PI/180,dp=(lat2-lat1)*Math.PI/180,dl=(lon2-lon1)*Math.PI/180,a=Math.sin(dp/2)**2+Math.cos(p1)*Math.cos(p2)*Math.sin(dl/2)**2;return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));}
+function toggleBusRouteModal(){document.getElementById("busModal").classList.toggle("hidden");}
+function toggleHelpModal(){document.getElementById("helpModal").classList.toggle("hidden");}
+function toggleApiSettingsModal(){document.getElementById("apiSettingsModal").classList.toggle("hidden");}
+</script>
+</body>
+</html>
